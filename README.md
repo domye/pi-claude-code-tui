@@ -1,6 +1,6 @@
 # pi-claude-code-tui
 
-A pi package that gives startup a polished Pi header while keeping pi's original footer.
+A pi package that gives startup a polished Pi header.
 
 ![Screenshot](./assets/screenshot.png)
 
@@ -32,7 +32,7 @@ pi -e npm:pi-claude-code-tui
 - Shows current model (`provider/id`), thinking effort, and cwd
 - Right-side tips panel on wide terminals (narrow sidebar with `…` truncation)
 - Keeps pi's original input box and cursor
-- Keeps pi's original footer and spinner, with Claude-style rotating working verbs
+- Claude-style rotating working verbs
 
 ## Local development
 
@@ -43,7 +43,7 @@ pi -e .
 ## Commands
 
 - `/use-claude-code-tui` — switch to this package's look (Pi header)
-- `/use-default-tui` — switch back to pi's built-in header, footer, and spinner
+- `/use-default-tui` — switch back to pi's built-in header
 
 ## License
 

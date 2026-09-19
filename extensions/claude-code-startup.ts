@@ -317,8 +317,6 @@ function applyPiLook(pi: ExtensionAPI, ctx: ExtensionContext): void {
 		activePiStartupHeader = new PiStartupHeader(pi, ctx, tui);
 		return activePiStartupHeader;
 	});
-	ctx.ui.setFooter(undefined); // keep pi's original footer
-	ctx.ui.setWorkingIndicator(undefined); // keep pi's original spinner
 }
 
 export default function (pi: ExtensionAPI) {
@@ -350,13 +348,11 @@ export default function (pi: ExtensionAPI) {
 	});
 
 	pi.registerCommand("use-default-tui", {
-		description: "Switch back to pi's built-in header, footer, and spinner",
+		description: "Switch back to pi's built-in header",
 		handler: async (_args, ctx) => {
 			stopWorkingVerbs(ctx);
 			disposeActiveHeader();
 			ctx.ui.setHeader(undefined);
-			ctx.ui.setFooter(undefined);
-			ctx.ui.setWorkingIndicator(undefined);
 			ctx.ui.notify("Using default pi TUI", "info");
 		},
 	});
