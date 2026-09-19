@@ -10,10 +10,12 @@ import {
 	headerColumnWidths,
 	padRight,
 	pickSlashCommandTips,
+	pickWorkingVerb,
 } from "./render-utils.ts";
 
 const LOGO_CELL = "███";
 const LOGO_ANIMATION_INTERVAL_MS = 120;
+const WORKING_VERB_INTERVAL_MS = 2400;
 
 type LogoColor = "panel" | "cyan" | "red" | "green" | "orange" | "white" | "flash" | "brand";
 type LogoFrame = {
@@ -269,6 +271,36 @@ class PiStartupHeader implements Component {
 }
 
 let activePiStartupHeader: PiStartupHeader | undefined;
+let workingVerbTimer: NodeJS.Timeout | undefined;
+let workingVerbContext: ExtensionContext | undefined;
+
+function stopWorkingVerbs(ctx?: ExtensionContext): void {
+	if (workingVerbTimer) {
+		clearInterval(workingVerbTimer);
+		workingVerbTimer = undefined;
+	}
+
+	const activeContext = workingVerbContext ?? ctx;
+	workingVerbContext = undefined;
+	if (activeContext?.mode === "tui") activeContext.ui.setWorkingMessage(undefined);
+}
+
+function startWorkingVerbs(ctx: ExtensionContext): void {
+	if (ctx.mode !== "tui") return;
+
+	stopWorkingVerbs(ctx);
+	workingVerbContext = ctx;
+	let previous: string | undefined;
+	const update = () => {
+		const verb = pickWorkingVerb(previous);
+		previous = verb;
+		ctx.ui.setWorkingMessage(`${verb}...`);
+	};
+
+	update();
+	workingVerbTimer = setInterval(update, WORKING_VERB_INTERVAL_MS);
+	workingVerbTimer.unref?.();
+}
 
 function disposeActiveHeader(): void {
 	activePiStartupHeader?.dispose();
@@ -285,6 +317,8 @@ function applyPiLook(pi: ExtensionAPI, ctx: ExtensionContext): void {
 		activePiStartupHeader = new PiStartupHeader(pi, ctx, tui);
 		return activePiStartupHeader;
 	});
+	ctx.ui.setFooter(undefined); // keep pi's original footer
+	ctx.ui.setWorkingIndicator(undefined); // keep pi's original spinner
 }
 
 export default function (pi: ExtensionAPI) {
@@ -293,13 +327,22 @@ export default function (pi: ExtensionAPI) {
 		applyAfterOtherStartupHandlers.unref?.();
 	});
 
-	pi.on("session_shutdown", () => {
+	pi.on("agent_start", (_event, ctx) => {
+		startWorkingVerbs(ctx);
+	});
+
+	pi.on("agent_end", (_event, ctx) => {
+		stopWorkingVerbs(ctx);
+	});
+
+	pi.on("session_shutdown", (_event, ctx) => {
+		stopWorkingVerbs(ctx);
 		disposeActiveHeader();
 	});
 
 	// Named after the package (pi-claude-code-tui), not the host app.
 	pi.registerCommand("use-claude-code-tui", {
-		description: "Switch to the pi-claude-code-tui look (Pi startup header)",
+		description: "Switch to the pi-claude-code-tui look (Pi header)",
 		handler: async (_args, ctx) => {
 			applyPiLook(pi, ctx);
 			ctx.ui.notify("Using pi-claude-code-tui", "info");
@@ -307,10 +350,13 @@ export default function (pi: ExtensionAPI) {
 	});
 
 	pi.registerCommand("use-default-tui", {
-		description: "Switch back to pi's built-in header",
+		description: "Switch back to pi's built-in header, footer, and spinner",
 		handler: async (_args, ctx) => {
+			stopWorkingVerbs(ctx);
 			disposeActiveHeader();
 			ctx.ui.setHeader(undefined);
+			ctx.ui.setFooter(undefined);
+			ctx.ui.setWorkingIndicator(undefined);
 			ctx.ui.notify("Using default pi TUI", "info");
 		},
 	});
