@@ -1,24 +1,15 @@
-import {
-	CustomEditor,
-	VERSION,
-	type ExtensionAPI,
-	type ExtensionContext,
-	type KeybindingsManager,
-} from "@earendil-works/pi-coding-agent";
-import type { Component, EditorTheme, TUI } from "@earendil-works/pi-tui";
+import { VERSION, type ExtensionAPI, type ExtensionContext } from "@earendil-works/pi-coding-agent";
+import type { Component, TUI } from "@earendil-works/pi-tui";
 import { truncateToWidth, visibleWidth } from "@earendil-works/pi-tui";
 import {
-	applyRoundedEditorBorders,
 	center,
 	collectPiCommandNames,
-	cursorOpenFromFgAnsi,
 	formatCwd,
 	formatModelLabel,
 	formatThinkingLabel,
 	headerColumnWidths,
 	padRight,
 	pickSlashCommandTips,
-	restyleEditorCursor,
 } from "./render-utils.ts";
 
 const LOGO_CELL = "███";
@@ -277,25 +268,6 @@ class PiStartupHeader implements Component {
 	}
 }
 
-class CodexStyleEditor extends CustomEditor {
-	constructor(
-		tui: TUI,
-		theme: EditorTheme,
-		keybindings: KeybindingsManager,
-		private readonly cursorOpen: () => string,
-	) {
-		super(tui, theme, keybindings, { paddingX: 1 });
-	}
-
-	render(width: number): string[] {
-		// Half-open box: rounded top/bottom only (no vertical sides).
-		const open = this.cursorOpen();
-		const paint = (s: string) => this.borderColor(s);
-		const lines = super.render(width).map((line) => restyleEditorCursor(line, open));
-		return applyRoundedEditorBorders(lines, width, paint);
-	}
-}
-
 let activePiStartupHeader: PiStartupHeader | undefined;
 
 function disposeActiveHeader(): void {
@@ -306,18 +278,12 @@ function disposeActiveHeader(): void {
 function applyPiLook(pi: ExtensionAPI, ctx: ExtensionContext): void {
 	if (ctx.mode !== "tui") return;
 
-	ctx.ui.setTitle("Pi");
+	// Only the startup header is replaced; window title, footer, spinner, and
+	// editor keep pi's defaults.
 	ctx.ui.setHeader((tui) => {
 		disposeActiveHeader();
 		activePiStartupHeader = new PiStartupHeader(pi, ctx, tui);
 		return activePiStartupHeader;
-	});
-	ctx.ui.setFooter(undefined); // keep pi's original footer
-	ctx.ui.setWorkingIndicator(undefined); // keep pi's original spinner
-	ctx.ui.setEditorComponent((tui, theme, keybindings) => {
-		// Cursor block uses theme accent (re-read each render so /theme switches apply).
-		const cursorOpen = () => cursorOpenFromFgAnsi(ctx.ui.theme.getFgAnsi("accent"));
-		return new CodexStyleEditor(tui, theme, keybindings, cursorOpen);
 	});
 }
 
@@ -333,7 +299,7 @@ export default function (pi: ExtensionAPI) {
 
 	// Named after the package (pi-claude-code-tui), not the host app.
 	pi.registerCommand("use-claude-code-tui", {
-		description: "Switch to the pi-claude-code-tui look (Pi header + Codex-style input)",
+		description: "Switch to the pi-claude-code-tui look (Pi startup header)",
 		handler: async (_args, ctx) => {
 			applyPiLook(pi, ctx);
 			ctx.ui.notify("Using pi-claude-code-tui", "info");
@@ -341,14 +307,10 @@ export default function (pi: ExtensionAPI) {
 	});
 
 	pi.registerCommand("use-default-tui", {
-		description: "Switch back to pi's built-in header, footer, editor, and spinner",
+		description: "Switch back to pi's built-in header",
 		handler: async (_args, ctx) => {
 			disposeActiveHeader();
-			ctx.ui.setTitle("pi");
 			ctx.ui.setHeader(undefined);
-			ctx.ui.setFooter(undefined);
-			ctx.ui.setWorkingIndicator(undefined);
-			ctx.ui.setEditorComponent(undefined);
 			ctx.ui.notify("Using default pi TUI", "info");
 		},
 	});
